@@ -98,4 +98,3 @@ if (location.pathname.endsWith('note.html')) {
       doc.save('burner-note.pdf');
     };
   };
-}
