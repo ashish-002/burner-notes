@@ -1,191 +1,122 @@
-// app.js
-class BurnerApp {
-  constructor() {
-    this.currentNote = null;
-    this.init();
-  }
+/* style.css */
 
-  async init() {
-    this.setupEventListeners();
-    this.setupServiceWorker();
-    if (document.readyState === 'loading') {
-      await new Promise(r => document.addEventListener('DOMContentLoaded', r));
-    }
-    await new Promise(r => setTimeout(r, 50));
-    if (window.location.hash.length > 1) {
-      this.processHash();
-    }
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) setTimeout(() => this.processHash(), 50);
-    });
-    window.addEventListener('focus', () => setTimeout(() => this.processHash(), 50));
-  }
+/* Import a clean sans font and a monospace for code/note display */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono&display=swap');
 
-  setupEventListeners() {
-    document.getElementById('createNote').addEventListener('click', () => this.generateNote());
-    document.getElementById('unlockButton').addEventListener('click', () => this.handlePasswordSubmit());
-    document.querySelectorAll('#newNote').forEach(btn =>
-      btn.addEventListener('click', () => location.reload())
-    );
-    window.addEventListener('hashchange', () => setTimeout(() => this.processHash(), 10));
-    window.addEventListener('load', () => setTimeout(() => this.processHash(), 50));
-  }
-
-  async generateNote() {
-    const content  = document.getElementById('noteContent').value;
-    const password = document.getElementById('notePassword').value;
-    if (!content || !password) {
-      alert('Please enter both content and password!');
-      return;
-    }
-    try {
-      const encrypted = await this.encryptContent(content, password);
-      const noteData  = {
-        data:    encrypted,
-        expires: Date.now() + (parseInt(document.getElementById('expiry').value, 10) * 1000)
-      };
-      const noteString = btoa(encodeURIComponent(JSON.stringify(noteData)));
-      this.showShareView(noteString, noteData.expires);
-    } catch (e) {
-      alert('Error creating note: ' + e.message);
-    }
-  }
-
-  async encryptContent(text, password) {
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    const iv   = crypto.getRandomValues(new Uint8Array(12));
-    const keyMat = await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(password),
-      "PBKDF2",
-      false,
-      ["deriveKey"]
-    );
-    const key = await crypto.subtle.deriveKey(
-      { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
-      keyMat,
-      { name: "AES-GCM", length: 256 },
-      false,
-      ["encrypt"]
-    );
-    const buf = await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv },
-      key,
-      new TextEncoder().encode(DOMPurify.sanitize(text))
-    );
-    return {
-      cipher: Array.from(new Uint8Array(buf)),
-      iv:     Array.from(iv),
-      salt:   Array.from(salt)
-    };
-  }
-
-  showShareView(noteString, expiryTime) {
-    const shareUrl = `${location.origin}/#${noteString}`;
-    document.getElementById('createView').classList.add('hidden');
-    document.getElementById('shareView').classList.remove('hidden');
-    const linkEl = document.getElementById('shareLink');
-    linkEl.value = shareUrl;
-    document.getElementById('copyLink').onclick = async () => {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        alert('Link copied!');
-      } catch {
-        alert('Failed to copy link');
-      }
-    };
-    this.startCountdown(expiryTime, 'countdown');
-  }
-
-  startCountdown(endTime, elementId) {
-    const tick = () => {
-      const rem = endTime - Date.now();
-      if (rem <= 0) {
-        document.getElementById(elementId).textContent = "EXPIRED";
-        return;
-      }
-      const h = Math.floor(rem/3600000), 
-            m = Math.floor((rem%3600000)/60000), 
-            s = Math.floor((rem%60000)/1000);
-      document.getElementById(elementId).textContent =
-        `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-      requestAnimationFrame(tick);
-    };
-    tick();
-  }
-
-  processHash() {
-    const noteString = window.location.hash.substring(1);
-    if (this.currentNote && this.currentNote.processed) return;
-    if (!noteString || noteString.length < 10) return;
-    try {
-      const decoded = JSON.parse(decodeURIComponent(atob(noteString)));
-      if (!decoded.data || !decoded.expires) return;
-      if (decoded.expires < Date.now()) {
-        alert('Note expired');
-        history.replaceState({}, '', location.pathname);
-        return;
-      }
-      this.currentNote = { ...decoded, processed: true };
-      document.getElementById('passwordModal').classList.remove('hidden');
-    } catch {
-      if (noteString.length > 50) {
-        alert('Invalid or corrupted note');
-        history.replaceState({}, '', location.pathname);
-      }
-    }
-  }
-
-  async handlePasswordSubmit() {
-    const pwd = document.getElementById('passwordInput').value;
-    if (!pwd) return alert('Please enter a password');
-    if (!this.currentNote) return alert('No note data available');
-    try {
-      const plain = await this.decryptContent(this.currentNote.data, pwd);
-      this.showDecryptedNote(plain);
-      history.replaceState({}, '', location.pathname);
-    } catch {
-      alert('Wrong password or corrupted note!');
-    }
-  }
-
-  async decryptContent(encryptedData, password) {
-    const keyMat = await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(password),
-      "PBKDF2",
-      false,
-      ["deriveKey"]
-    );
-    const key = await crypto.subtle.deriveKey(
-      { name: "PBKDF2", salt:new Uint8Array(encryptedData.salt), iterations:100000, hash:"SHA-256" },
-      keyMat,
-      { name:"AES-GCM", length:256 },
-      false,
-      ["decrypt"]
-    );
-    const buf = await crypto.subtle.decrypt(
-      { name:"AES-GCM", iv:new Uint8Array(encryptedData.iv) },
-      key,
-      new Uint8Array(encryptedData.cipher)
-    );
-    return new TextDecoder().decode(buf);
-  }
-
-  showDecryptedNote(content) {
-    document.getElementById('passwordModal').classList.add('hidden');
-    document.getElementById('createView').classList.add('hidden');
-    document.getElementById('noteView').classList.remove('hidden');
-    document.getElementById('noteDisplay').textContent = content;
-    this.startCountdown(this.currentNote.expires, 'viewCountdown');
-  }
-
-  setupServiceWorker() {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW error:', err));
-    }
-  }
+/* Full-screen animated gradient background */
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(-45deg, #ff6b6b, #f8e71c, #6bffb8, #6b6bff);
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+  font-family: 'Inter', sans-serif;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
 }
 
-// Initialize app
-const app = new BurnerApp();
+/* Gradient animation */
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Shared panel style for all views */
+#createView,
+#shareView,
+#passwordModal,
+#noteView {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  padding: 2rem;
+  width: 100%;
+  max-width: 480px;
+  margin: auto;
+  animation: fadeIn 0.6s ease both;
+}
+
+/* Fade-in helper */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0);       }
+}
+
+/* Inputs and textareas */
+textarea,
+input,
+select {
+  width: 100%;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  font-size: 1rem;
+  font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
+  transition: background 0.2s ease;
+}
+textarea:focus,
+input:focus,
+select:focus {
+  background: rgba(255,255,255,0.3);
+  outline: none;
+}
+
+/* Buttons */
+button {
+  display: inline-block;
+  padding: 0.8rem 1.6rem;
+  margin: 0.3rem 0.2rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #222;
+  background: linear-gradient(135deg, #ffd54f, #ff6e40);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+}
+
+/* Read-only share link */
+#shareLink {
+  font-family: 'Roboto Mono', monospace;
+  background: rgba(255,255,255,0.2);
+  border-radius: 8px;
+  padding: 0.6rem;
+  margin-bottom: 1rem;
+  resize: none;
+  height: 4rem;
+  color: #fff;
+}
+
+/* Countdown timers */
+#countdown,
+#viewCountdown {
+  text-align: center;
+  font-size: 1.2rem;
+  margin-top: 1rem;
+  font-weight: 500;
+}
+
+/* Note display area */
+#noteDisplay {
+  font-family: 'Roboto Mono', monospace;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-size: 1rem;
+}
+
+/* Utility */
+.hidden { display: none; }
