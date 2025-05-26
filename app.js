@@ -2,18 +2,27 @@
 
 // Open IndexedDB
 const dbReq = indexedDB.open('BurnerNotesDB', 1);
-dbReq.onupgradeneeded = e => {
-  e.target.result.createObjectStore('notes', { keyPath: 'id' });
+dbReq.onsuccess = () => {
+  const db = dbReq.result;
+
+  // 1) Purge expired notes now that `db` is ready:
+  purgeExpired(db);
+
+  // 2) Safe to bind your click handler:
+  document.getElementById('create-btn').onclick = async () => {
+    const tx = db.transaction('notes', 'readwrite');
+    // … rest of your logic …
+  };
 };
 
-// Utility: Purge expired notes on load
-function purgeExpired() {
-  const tx = dbReq.result.transaction('notes', 'readwrite');
+function purgeExpired(db) {
+  const tx = db.transaction('notes', 'readwrite');
   const store = tx.objectStore('notes');
   store.openCursor().onsuccess = e => {
     const cursor = e.target.result;
     if (cursor) {
-      if (Date.now() - cursor.value.created > cursor.value.expiry) {
+      const note = cursor.value;
+      if (Date.now() - note.created > note.expiry) {
         store.delete(cursor.primaryKey);
       }
       cursor.continue();
@@ -29,12 +38,15 @@ if (location.pathname.endsWith('note.html')) {
   const encrypted = decodeURIComponent(params.get('data'));
   const keyRaw    = Uint8Array.from(atob(params.get('key')), c => c.charCodeAt(0));
 
-  dbReq.onsuccess = async () => {
-    const tx    = dbReq.result.transaction('notes', 'readwrite');
-    const store = tx.objectStore('notes');
-    const record = await new Promise(resolve => {
-      store.get(noteId).onsuccess = e => resolve(e.target.result);
-    });
+  dbReq.onsuccess = () => {
+    const db = dbReq.result;
+    document.getElementById('create-btn').onclick = async () => {
+      // now db is defined
+      const tx = db.transaction('notes','readwrite');
+      // …
+    };
+  };
+
 
     // Handle missing or expired note
     if (!record || Date.now() - record.created > record.expiry) {
