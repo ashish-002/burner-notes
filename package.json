@@ -1,7 +1,0 @@
-{
-  "name": "burner-notes",
-  "version": "1.0.0",
-  "dependencies": {
-    "nanoid": "^4.0.0"
-  }
-}
