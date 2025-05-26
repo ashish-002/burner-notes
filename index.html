@@ -1,56 +1,58 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" 
-          content="default-src 'self';
-                   script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'unsafe-eval';
-                   style-src 'self' 'unsafe-inline';
-                   img-src data:;
-                   object-src 'none';
-                   base-uri 'self'">
-    <title>Secure Burner Notes</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
-            integrity="sha256-xUHvBjJ4hahBW8qN9gceFBibSFUzbe9PNttUvehITzY="
-            crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+  <meta charset="utf-8">
+  <title>Burner Notes</title>
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;">
+  <link rel="stylesheet" href="style.css">
+  <!-- QRCode library -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <!-- LZ-String for compression -->
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js"></script>
+  <!-- jsPDF for PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <div id="passwordModal" class="modal hidden">
-            <div class="modal-content">
-                <h3>🔒 Enter Password</h3>
-                <input type="password" id="passwordInput">
-                <button id="unlockButton">Unlock</button>
-            </div>
-        </div>
+  <!-- Create Note View -->
+  <div id="createView">
+    <h1>Create Note</h1>
+    <textarea id="noteContent" placeholder="Enter your note…"></textarea>
+    <input id="notePassword" type="password" placeholder="Set a password">
+    <label for="expiry">Expires in:</label>
+    <select id="expiry">
+      <option value="3600">1 hour</option>
+      <option value="86400">1 day</option>
+      <option value="604800">7 days</option>
+    </select>
+    <button id="createNote">Create</button>
+  </div>
 
-        <div id="createView">
-            <h1>🔥 New Burner Note</h1>
-            <textarea id="noteContent" placeholder="Type sensitive info here..."></textarea>
-            <div class="security-row">
-                <input type="password" id="notePassword" placeholder="Set password">
-                <select id="expiry">
-                    <option value="3600">1 Hour</option>
-                    <option value="86400">1 Day</option>
-                    <option value="604800">1 Week</option>
-                </select>
-                <button id="createNote">Create Note</button>
-            </div>
-        </div>
+  <!-- Share View -->
+  <div id="shareView" class="hidden">
+    <h1>Share Your Note</h1>
+    <div id="qrcode"></div>
+    <div id="countdown"></div>
+    <button id="newNote">New Note</button>
+  </div>
 
-        <div id="shareView" class="hidden">
-            <div id="qrcode"></div>
-            <p>⌛ Expires in: <span id="countdown">00:00:00</span></p>
-            <button id="newNote">New Note</button>
-        </div>
-
-        <div id="noteView" class="hidden">
-            <pre id="noteDisplay"></pre>
-            <div id="viewCountdown"></div>
-        </div>
+  <!-- Password Modal -->
+  <div id="passwordModal" class="hidden">
+    <div class="modal-content">
+      <input id="passwordInput" type="password" placeholder="Enter password">
+      <button id="unlockButton">Unlock</button>
     </div>
-    <script src="app.js"></script>
+  </div>
+
+  <!-- Note View -->
+  <div id="noteView" class="hidden">
+    <h1>Your Note</h1>
+    <div id="noteDisplay"></div>
+    <div id="viewCountdown"></div>
+    <button id="newNote">New Note</button>
+    <button id="export-pdf">Download PDF</button>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
