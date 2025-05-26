@@ -63,10 +63,11 @@
       // Build the share URL with fragment (id, data, key)
       const frag = new URLSearchParams({
         id:    btoa(String.fromCharCode(...idArr)),
-        data:  encodeURIComponent(combined),
+        data: combined, 
         key:   btoa(String.fromCharCode(...keyArr))
       }).toString();
       const shareUrl = `${location.origin}/note.html#${frag}`;
+      console.log('QR encoding this URL:', shareUrl);
 
       // Generate the QR code
       const qrDiv = document.getElementById('qr-code');
