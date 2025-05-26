@@ -1,13 +1,13 @@
 // Wrap everything to avoid globals
 (() => {
-  // 1. Open (or create) the IndexedDB database
+  // 1. Open (or create) the IndexedDB database (still used only for purgeExpired; you can leave it or remove if unused)
   const dbReq = indexedDB.open('BurnerNotesDB', 1);
   dbReq.onupgradeneeded = e => {
     e.target.result.createObjectStore('notes', { keyPath: 'id' });
   };
   dbReq.onerror = e => console.error('IndexedDB error:', e);
 
-  // 2. Once the DB is open, purge expired and init page logic
+  // 2. Once the DB is open, purge expired (optional) and init page logic
   dbReq.onsuccess = () => {
     const db = dbReq.result;
 
@@ -16,14 +16,14 @@
 
     // Decide which flow to run
     if (location.pathname.endsWith('note.html')) {
-      initViewNoteFlow(db);
+      initViewNoteFlow();
     } else {
-      initCreateNoteFlow(db);
+      initCreateNoteFlow();
     }
   };
 
-  // 3. Create-Note flow (home page)
-  function initCreateNoteFlow(db) {
+  // 3. Create-Note flow (home page) — now uses serverless storeNote function
+  function initCreateNoteFlow() {
     const btn = document.getElementById('create-btn');
     if (!btn) {
       console.warn('Create button not found – are you on the right page?');
@@ -41,109 +41,111 @@
       );
 
       // Encrypt the note text
-      const text       = document.getElementById('note-input').value;
-      const textBytes  = new TextEncoder().encode(text);
-      const cipherBuf  = await crypto.subtle.encrypt(
+      const text      = document.getElementById('note-input').value;
+      const textBytes = new TextEncoder().encode(text);
+      const cipherBuf = await crypto.subtle.encrypt(
         { name: 'AES-GCM', iv }, cryptoKey, textBytes
       );
 
       // Combine IV + ciphertext into one Base64 string
-      const combined   = btoa(String.fromCharCode(...iv, ...new Uint8Array(cipherBuf)));
+      const combined = btoa(String.fromCharCode(...iv, ...new Uint8Array(cipherBuf)));
 
-      // Store in IndexedDB with TTL from the select
+      // Read TTL
       const expiryMs = parseInt(document.getElementById('expiry-select').value, 10);
-      const storeTx  = db.transaction('notes','readwrite').objectStore('notes');
-      storeTx.put({
-        id: btoa(String.fromCharCode(...idArr)),
-        data: combined,
-        created: Date.now(),
-        expiry: expiryMs
-      });
-      
-      // Compress for QR payload
-      const compressed = LZString.compressToEncodedURIComponent(combined);
 
-      // Build the share URL with fragment (id, data, key)
-      const frag = new URLSearchParams({
-        id:    btoa(String.fromCharCode(...idArr)),
-        data: compressed,
-        key:   btoa(String.fromCharCode(...keyArr))
-      }).toString();
-      const shareUrl = `${location.origin}/note.html#${frag}`;
+      // ——— Serverless upload ———
+      const resp = await fetch('/.netlify/functions/storeNote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: combined, created: Date.now(), expiry: expiryMs })
+      });
+      const { shortId } = await resp.json();
+
+      // Build the share URL: shortId in query + key in fragment
+      const keyB64   = btoa(String.fromCharCode(...keyArr));
+      const shareUrl = `${location.origin}/note.html?id=${shortId}#key=${keyB64}`;
       console.log('QR encoding this URL:', shareUrl);
 
       // Generate the QR code
       const qrDiv = document.getElementById('qr-code');
       qrDiv.innerHTML = ''; // clear previous
-      new QRCode(qrDiv, { text: shareUrl, width: 200, height: 200 });
+      new QRCode(qrDiv, {
+        text: shareUrl,
+        width: 200,
+        height: 200,
+        version: 40,
+        correctLevel: QRCode.CorrectLevel.L
+      });
     });
   }
 
-  // 4. View-Note flow (note.html)
-  function initViewNoteFlow(db) {
-    // Parse fragment params
-    const params     = new URLSearchParams(location.hash.slice(1));
-    const noteId     = params.get('id');
-    
-    // Decompress the stored payload
-    const compressed = params.get('data');
-    const combined   = LZString.decompressFromEncodedURIComponent(compressed);
+  // 4. View-Note flow (note.html) — now uses serverless getNote function
+  async function initViewNoteFlow() {
+    // 4.1 Parse shortId from query
+    const params  = new URLSearchParams(location.search);
+    const shortId = params.get('id');
+    if (!shortId) {
+      return document.getElementById('output').textContent = 'Missing note ID';
+    }
 
-    const keyRaw     = Uint8Array.from(atob(params.get('key')), c => c.charCodeAt(0));
+    // 4.2 Read key from fragment
+    const frag    = new URL(location).hash.substring(1);
+    const keyB64  = new URLSearchParams(frag).get('key');
+    if (!keyB64) {
+      return document.getElementById('output').textContent = 'Missing decryption key';
+    }
+    const keyRaw  = Uint8Array.from(atob(keyB64), c => c.charCodeAt(0));
 
-    // Fetch record from IndexedDB
-    const tx    = db.transaction('notes','readwrite');
-    const store = tx.objectStore('notes');
-    store.get(noteId).onsuccess = async e => {
-      const record = e.target.result;
+    // 4.3 Fetch encrypted blob & metadata
+    const resp = await fetch(`/.netlify/functions/getNote?shortId=${encodeURIComponent(shortId)}`);
+    if (!resp.ok) {
+      return document.getElementById('output').textContent = 'Failed to retrieve note';
+    }
+    const { data: combined, created, expiry } = await resp.json();
 
-      // 4.1 Expiry check
-      if (!record || Date.now() - record.created > record.expiry) {
+    // 4.4 Expiry check
+    if (Date.now() - created > expiry) {
+      return document.getElementById('output').textContent = 'Note expired';
+    }
+
+    // 4.5 AES-GCM decryption
+    const rawBytes  = atob(combined);
+    const iv        = Uint8Array.from(rawBytes.slice(0,12), c => c.charCodeAt(0));
+    const ctBytes   = Uint8Array.from(rawBytes.slice(12),  c => c.charCodeAt(0));
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw', keyRaw, 'AES-GCM', false, ['decrypt']
+    );
+    const plainBuf  = await crypto.subtle.decrypt(
+      { name:'AES-GCM', iv }, cryptoKey, ctBytes
+    );
+    const plainText = new TextDecoder().decode(plainBuf);
+
+    // 4.6 Display plaintext
+    document.getElementById('output').textContent = plainText;
+
+    // 4.7 Start countdown timer
+    const endTime = created + expiry;
+    const timerEl = document.getElementById('timer');
+    const interval = setInterval(() => {
+      const remain = endTime - Date.now();
+      if (remain <= 0) {
+        clearInterval(interval);
         document.getElementById('output').textContent = 'Note expired';
-        if (record) store.delete(noteId);
         return;
       }
+      timerEl.textContent = `Expires in ${Math.ceil(remain/1000)}s`;
+    }, 500);
 
-      // 4.2 AES-GCM decryption
-      const rawBytes  = atob(combined);
-      const iv        = Uint8Array.from(rawBytes.slice(0,12), c => c.charCodeAt(0));
-      const ctBytes   = Uint8Array.from(rawBytes.slice(12),  c => c.charCodeAt(0));
-      const cryptoKey = await crypto.subtle.importKey(
-        'raw', keyRaw, 'AES-GCM', false, ['decrypt']
-      );
-      const plainBuf  = await crypto.subtle.decrypt(
-        { name:'AES-GCM', iv }, cryptoKey, ctBytes
-      );
-      const plainText = new TextDecoder().decode(plainBuf);
-
-      // 4.3 Display & clean up
-      document.getElementById('output').textContent = plainText;
-      store.delete(noteId);
-
-      // 4.4 Start countdown timer
-      const endTime = record.created + record.expiry;
-      const timerEl = document.getElementById('timer');
-      const interval = setInterval(() => {
-        const remain = endTime - Date.now();
-        if (remain <= 0) {
-          clearInterval(interval);
-          document.getElementById('output').textContent = 'Note expired';
-          return;
-        }
-        timerEl.textContent = `Expires in ${Math.ceil(remain/1000)}s`;
-      }, 500);
-
-      // 4.5 Wire up PDF export
-      document.getElementById('export-pdf').addEventListener('click', () => {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-        doc.text(plainText, 10, 10);
-        doc.save('burner-note.pdf');
-      });
-    };
+    // 4.8 Wire up PDF export
+    document.getElementById('export-pdf').addEventListener('click', () => {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.text(plainText, 10, 10);
+      doc.save('burner-note.pdf');
+    });
   }
 
-  // 5. Purge expired records helper
+  // 5. Purge expired records helper (optional; indexedDB no longer used for storage)
   function purgeExpired(db) {
     const tx = db.transaction('notes','readwrite');
     const store = tx.objectStore('notes');

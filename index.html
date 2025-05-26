@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta http-equiv="Content-Security-Policy"
-      content="script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;">
+        content="script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;">
   <title>Burner Notes</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -17,9 +17,12 @@
     <button id="create-btn">Create Burner Note</button>
     <div id="qr-code"></div>
   </div>
+
+  <!-- 1) QRCode.js (needed for new QRCode(...) ) -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.1/jspdf.umd.min.js"></script>
+  <!-- 2) LZ-String (needed for compressing the payload) -->
   <script src="https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js"></script>
+  <!-- 3) Your application logic -->
   <script src="app.js"></script>
 </body>
 </html>
