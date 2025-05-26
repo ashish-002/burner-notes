@@ -5,6 +5,11 @@ class BurnerApp {
     }
 
     async init() {
+        // Wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
+        }
+        
         this.setupEventListeners();
         this.setupServiceWorker();
         this.checkForSharedNote();
@@ -14,6 +19,9 @@ class BurnerApp {
         document.getElementById('createNote').addEventListener('click', () => this.generateNote());
         document.getElementById('unlockButton').addEventListener('click', () => this.handlePasswordSubmit());
         document.getElementById('newNote').addEventListener('click', () => location.reload());
+        
+        // Add hash change listener
+        window.addEventListener('hashchange', () => this.checkForSharedNote());
     }
 
     async generateNote() {
@@ -112,18 +120,39 @@ class BurnerApp {
     }
 
     checkForSharedNote() {
+        // Check immediately
+        this.processHash();
+        
+        // Also check after a short delay in case hash loads later
+        setTimeout(() => this.processHash(), 100);
+    }
+
+    processHash() {
+        console.log('Current URL:', window.location.href);
+        console.log('Hash:', window.location.hash);
+        
         const noteString = window.location.hash.substring(1);
-        if (!noteString) return;
+        console.log('Note string:', noteString);
+        
+        if (!noteString) {
+            console.log('No hash found');
+            return;
+        }
 
         try {
             this.currentNote = JSON.parse(decodeURIComponent(atob(noteString)));
+            console.log('Parsed note:', this.currentNote);
+            
             if (this.currentNote.expires < Date.now()) {
                 alert('Note expired');
                 history.replaceState({}, '', location.pathname);
                 return;
             }
+            
+            console.log('Showing password modal');
             document.getElementById('passwordModal').classList.remove('hidden');
         } catch (error) {
+            console.error('Hash parsing error:', error);
             alert('Invalid or corrupted note');
             history.replaceState({}, '', location.pathname);
         }
