@@ -1,122 +1,54 @@
-/* style.css */
+<!-- index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self';">
+  <title>Burner Notes</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Create View -->
+  <div id="createView">
+    <textarea id="noteContent" placeholder="Enter your note…"></textarea>
+    <input id="notePassword" type="password" placeholder="Password" />
+    <select id="expiry">
+      <option value="3600">1 hour</option>
+      <option value="86400">1 day</option>
+      <option value="604800">7 days</option>
+    </select>
+    <button id="createNote">Create</button>
+  </div>
 
-/* Import a clean sans font and a monospace for code/note display */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono&display=swap');
+  <!-- Share View -->
+  <div id="shareView" class="hidden">
+    <p>Your secure note link:</p>
+    <textarea id="shareLink" readonly></textarea>
+    <button id="copyLink">Copy Link</button>
+    <button id="newNote">New Note</button>
+    <div id="countdown"></div>
+  </div>
 
-/* Full-screen animated gradient background */
-body {
-  margin: 0;
-  min-height: 100vh;
-  background: linear-gradient(-45deg, #ff6b6b, #f8e71c, #6bffb8, #6b6bff);
-  background-size: 400% 400%;
-  animation: gradientShift 15s ease infinite;
-  font-family: 'Inter', sans-serif;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-}
+  <!-- Unlock Modal -->
+  <div id="passwordModal" class="hidden">
+    <input id="passwordInput" type="password" placeholder="Enter password" />
+    <button id="unlockButton">Unlock</button>
+  </div>
 
-/* Gradient animation */
-@keyframes gradientShift {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
+  <!-- Note View -->
+  <div id="noteView" class="hidden">
+    <div id="noteDisplay"></div>
+    <div id="viewCountdown"></div>
+    <button id="newNote">New Note</button>
+    <button id="export-pdf">Download PDF</button>
+  </div>
 
-/* Shared panel style for all views */
-#createView,
-#shareView,
-#passwordModal,
-#noteView {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(12px);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  padding: 2rem;
-  width: 100%;
-  max-width: 480px;
-  margin: auto;
-  animation: fadeIn 0.6s ease both;
-}
-
-/* Fade-in helper */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to   { opacity: 1; transform: translateY(0);       }
-}
-
-/* Inputs and textareas */
-textarea,
-input,
-select {
-  width: 100%;
-  padding: 0.8rem;
-  margin-bottom: 1rem;
-  border: none;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.2);
-  color: #fff;
-  font-size: 1rem;
-  font-family: 'Inter', sans-serif;
-  box-sizing: border-box;
-  transition: background 0.2s ease;
-}
-textarea:focus,
-input:focus,
-select:focus {
-  background: rgba(255,255,255,0.3);
-  outline: none;
-}
-
-/* Buttons */
-button {
-  display: inline-block;
-  padding: 0.8rem 1.6rem;
-  margin: 0.3rem 0.2rem;
-  font-size: 1rem;
-  font-weight: 500;
-  color: #222;
-  background: linear-gradient(135deg, #ffd54f, #ff6e40);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-button:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-}
-
-/* Read-only share link */
-#shareLink {
-  font-family: 'Roboto Mono', monospace;
-  background: rgba(255,255,255,0.2);
-  border-radius: 8px;
-  padding: 0.6rem;
-  margin-bottom: 1rem;
-  resize: none;
-  height: 4rem;
-  color: #fff;
-}
-
-/* Countdown timers */
-#countdown,
-#viewCountdown {
-  text-align: center;
-  font-size: 1.2rem;
-  margin-top: 1rem;
-  font-weight: 500;
-}
-
-/* Note display area */
-#noteDisplay {
-  font-family: 'Roboto Mono', monospace;
-  white-space: pre-wrap;
-  line-height: 1.5;
-  font-size: 1rem;
-}
-
-/* Utility */
-.hidden { display: none; }
+  <!-- jsPDF for PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- DOMPurify for safe sanitization -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.4.0/purify.min.js"></script>
+  <!-- Main App -->
+  <script src="app.js"></script>
+</body>
+</html>
