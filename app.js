@@ -34,8 +34,11 @@ class BurnerApp {
         document.getElementById('unlockButton').addEventListener('click', () => this.handlePasswordSubmit());
         document.getElementById('newNote').addEventListener('click', () => location.reload());
         
-        // Add hash change listener
-        window.addEventListener('hashchange', () => this.checkForSharedNote());
+        // Add hash change listener for backward compatibility
+        window.addEventListener('hashchange', () => this.processHash());
+        
+        // Add popstate listener for query parameter changes
+        window.addEventListener('popstate', () => this.checkForSharedNote());
     }
 
     async generateNote() {
@@ -95,7 +98,8 @@ class BurnerApp {
     }
 
     showShareView(noteString, expiryTime) {
-        const shareUrl = `${location.origin}${location.pathname}#${noteString}`;
+        // Use query parameter instead of hash fragment for better QR code compatibility
+        const shareUrl = `${location.origin}${location.pathname}?n=${noteString}`;
         document.getElementById('createView').classList.add('hidden');
         document.getElementById('shareView').classList.remove('hidden');
         
@@ -134,33 +138,62 @@ class BurnerApp {
     }
 
     checkForSharedNote() {
-        // Check immediately
+        // Check for note data in query parameters (primary method for QR codes)
+        this.checkURLParams();
+        
+        // Also check hash for backward compatibility
         this.processHash();
         
-        // Also check after delays in case hash loads later
-        setTimeout(() => this.processHash(), 100);
-        setTimeout(() => this.processHash(), 500);
-        setTimeout(() => this.processHash(), 1000);
-        
-        // Check if there's a note in the current URL (sometimes hash gets lost)
-        this.checkURLParams();
+        // Also check after delays in case data loads later
+        setTimeout(() => {
+            this.checkURLParams();
+            this.processHash();
+        }, 100);
     }
 
     checkURLParams() {
-        // Check if the entire URL after domain contains encoded data
+        console.log('Checking URL params...');
+        console.log('Search params:', window.location.search);
+        
+        // Check for 'n' parameter (note data)
+        const urlParams = new URLSearchParams(window.location.search);
+        const noteString = urlParams.get('n');
+        
+        console.log('Note string from params:', noteString);
+        
+        if (noteString) {
+            try {
+                this.currentNote = JSON.parse(decodeURIComponent(atob(noteString)));
+                console.log('Parsed note from params:', this.currentNote);
+                
+                if (this.currentNote.expires < Date.now()) {
+                    alert('Note expired');
+                    history.replaceState({}, '', window.location.pathname);
+                    return;
+                }
+                
+                console.log('Showing password modal from params');
+                document.getElementById('passwordModal').classList.remove('hidden');
+                return;
+            } catch (error) {
+                console.error('URL params parsing error:', error);
+                alert('Invalid or corrupted note');
+                history.replaceState({}, '', window.location.pathname);
+                return;
+            }
+        }
+        
+        // Fallback: Check if the entire URL after domain contains encoded data
         const fullPath = window.location.href;
         const baseUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
-        
-        // Look for patterns that might be encoded note data
         const possibleNote = fullPath.replace(baseUrl, '').replace(/^[#?]/, '');
         
-        if (possibleNote && possibleNote.length > 50) {
-            console.log('Found possible note data in URL:', possibleNote);
+        if (possibleNote && possibleNote.length > 50 && !possibleNote.includes('n=')) {
+            console.log('Found possible note data in URL path:', possibleNote);
             try {
-                // Try to parse it as a note
                 const noteData = JSON.parse(decodeURIComponent(atob(possibleNote)));
                 if (noteData.data && noteData.expires) {
-                    console.log('Successfully parsed note from URL params');
+                    console.log('Successfully parsed note from URL path');
                     this.currentNote = noteData;
                     if (this.currentNote.expires < Date.now()) {
                         alert('Note expired');
@@ -170,7 +203,7 @@ class BurnerApp {
                     document.getElementById('passwordModal').classList.remove('hidden');
                 }
             } catch (e) {
-                console.log('Could not parse URL as note data:', e.message);
+                console.log('Could not parse URL path as note data:', e.message);
             }
         }
     }
