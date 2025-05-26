@@ -36,12 +36,10 @@ class BurnerApp {
         document.getElementById('newNote').addEventListener('click', () => location.reload());
         
         window.addEventListener('hashchange', () => {
-            console.log('Hash changed event triggered');
             setTimeout(() => this.processHash(), 10);
         });
         
         window.addEventListener('load', () => {
-            console.log('Window load event triggered');
             setTimeout(() => this.processHash(), 50);
         });
     }
@@ -95,7 +93,7 @@ class BurnerApp {
             new TextEncoder().encode(DOMPurify.sanitize(text))
         );
 
-        return { 
+        return {
             cipher: Array.from(new Uint8Array(encrypted)),
             iv:     Array.from(iv),
             salt:   Array.from(salt)
@@ -103,9 +101,7 @@ class BurnerApp {
     }
 
     showShareView(noteString, expiryTime) {
-        // SPA-friendly: put data in hash on the root page
         const shareUrl = `${location.origin}/#${noteString}`;
-        
         document.getElementById('createView').classList.add('hidden');
         document.getElementById('shareView').classList.remove('hidden');
         
@@ -135,7 +131,7 @@ class BurnerApp {
             const minutes = Math.floor((remaining % 3600000) / 60000);
             const seconds = Math.floor((remaining % 60000) / 1000);
 
-            document.getElementById(elementId).textContent = 
+            document.getElementById(elementId).textContent =
                 `${hours.toString().padStart(2, '0')}:` +
                 `${minutes.toString().padStart(2, '0')}:` +
                 `${seconds.toString().padStart(2, '0')}`;
@@ -149,8 +145,6 @@ class BurnerApp {
         const hash       = window.location.hash.substring(1);
         const noteString = hash;
         
-        console.log('--- Processing Hash ---', noteString.substring(0, 50) + '...');
-
         if (this.currentNote && this.currentNote.processed) return;
         if (!noteString || noteString.length < 10) return;
 
@@ -165,77 +159,3 @@ class BurnerApp {
             
             this.currentNote = { ...decoded, processed: true };
             document.getElementById('passwordModal').classList.remove('hidden');
-        } catch (e) {
-            console.error('Error processing hash:', e);
-            if (noteString.length > 50) {
-                alert('Invalid or corrupted note');
-                history.replaceState({}, '', location.pathname);
-            }
-        }
-    }
-
-    async handlePasswordSubmit() {
-        const password = document.getElementById('passwordInput').value;
-        if (!password) {
-            alert('Please enter a password');
-            return;
-        }
-        if (!this.currentNote) {
-            alert('No note data available');
-            return;
-        }
-        try {
-            const decrypted = await this.decryptContent(this.currentNote.data, password);
-            this.showDecryptedNote(decrypted);
-            history.replaceState({}, '', location.pathname);
-        } catch (error) {
-            alert('Wrong password or corrupted note!');
-        }
-    }
-
-    async decryptContent(encryptedData, password) {
-        const keyMaterial = await crypto.subtle.importKey(
-            "raw",
-            new TextEncoder().encode(password),
-            "PBKDF2",
-            false,
-            ["deriveKey"]
-        );
-        const key = await crypto.subtle.deriveKey(
-            { 
-                name: "PBKDF2",
-                salt:       new Uint8Array(encryptedData.salt),
-                iterations: 100000,
-                hash:       "SHA-256"
-            },
-            keyMaterial,
-            { name: "AES-GCM", length: 256 },
-            false,
-            ["decrypt"]
-        );
-        const decrypted = await crypto.subtle.decrypt(
-            { name: "AES-GCM", iv: new Uint8Array(encryptedData.iv) },
-            key,
-            new Uint8Array(encryptedData.cipher)
-        );
-        return new TextDecoder().decode(decrypted);
-    }
-
-    showDecryptedNote(content) {
-        document.getElementById('passwordModal').classList.add('hidden');
-        document.getElementById('createView').classList.add('hidden');
-        document.getElementById('noteView').classList.remove('hidden');
-        document.getElementById('noteDisplay').textContent = content;
-        this.startCountdown(this.currentNote.expires, 'viewCountdown');
-    }
-
-    setupServiceWorker() {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js')
-                .catch(err => console.error('SW error:', err));
-        }
-    }
-}
-
-// Initialize app
-const app = new BurnerApp();
