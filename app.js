@@ -12,7 +12,21 @@ class BurnerApp {
         
         this.setupEventListeners();
         this.setupServiceWorker();
+        
+        // Check for shared note with multiple strategies
         this.checkForSharedNote();
+        
+        // Also check when page becomes visible (for mobile browsers)
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                setTimeout(() => this.checkForSharedNote(), 50);
+            }
+        });
+        
+        // Check when window gains focus (for mobile browsers)
+        window.addEventListener('focus', () => {
+            setTimeout(() => this.checkForSharedNote(), 50);
+        });
     }
 
     setupEventListeners() {
@@ -123,16 +137,52 @@ class BurnerApp {
         // Check immediately
         this.processHash();
         
-        // Also check after a short delay in case hash loads later
+        // Also check after delays in case hash loads later
         setTimeout(() => this.processHash(), 100);
+        setTimeout(() => this.processHash(), 500);
+        setTimeout(() => this.processHash(), 1000);
+        
+        // Check if there's a note in the current URL (sometimes hash gets lost)
+        this.checkURLParams();
+    }
+
+    checkURLParams() {
+        // Check if the entire URL after domain contains encoded data
+        const fullPath = window.location.href;
+        const baseUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+        
+        // Look for patterns that might be encoded note data
+        const possibleNote = fullPath.replace(baseUrl, '').replace(/^[#?]/, '');
+        
+        if (possibleNote && possibleNote.length > 50) {
+            console.log('Found possible note data in URL:', possibleNote);
+            try {
+                // Try to parse it as a note
+                const noteData = JSON.parse(decodeURIComponent(atob(possibleNote)));
+                if (noteData.data && noteData.expires) {
+                    console.log('Successfully parsed note from URL params');
+                    this.currentNote = noteData;
+                    if (this.currentNote.expires < Date.now()) {
+                        alert('Note expired');
+                        history.replaceState({}, '', window.location.pathname);
+                        return;
+                    }
+                    document.getElementById('passwordModal').classList.remove('hidden');
+                }
+            } catch (e) {
+                console.log('Could not parse URL as note data:', e.message);
+            }
+        }
     }
 
     processHash() {
         console.log('Current URL:', window.location.href);
         console.log('Hash:', window.location.hash);
+        console.log('Search:', window.location.search);
+        console.log('Pathname:', window.location.pathname);
         
         const noteString = window.location.hash.substring(1);
-        console.log('Note string:', noteString);
+        console.log('Note string from hash:', noteString);
         
         if (!noteString) {
             console.log('No hash found');
@@ -153,8 +203,7 @@ class BurnerApp {
             document.getElementById('passwordModal').classList.remove('hidden');
         } catch (error) {
             console.error('Hash parsing error:', error);
-            alert('Invalid or corrupted note');
-            history.replaceState({}, '', location.pathname);
+            // Don't show alert here since we also try other methods
         }
     }
     
