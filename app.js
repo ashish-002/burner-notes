@@ -29,7 +29,6 @@ function purgeExpired(db) {
     }
   };
 }
-window.addEventListener('load', purgeExpired);
 
 // Note retrieval & decryption (note.html context)
 if (location.pathname.endsWith('note.html')) {
