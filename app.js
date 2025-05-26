@@ -59,11 +59,14 @@
         created: Date.now(),
         expiry: expiryMs
       });
+      
+      // Compress for QR payload
+      const compressed = LZString.compressToEncodedURIComponent(combined);
 
       // Build the share URL with fragment (id, data, key)
       const frag = new URLSearchParams({
         id:    btoa(String.fromCharCode(...idArr)),
-        data: combined, 
+        data: compressed,
         key:   btoa(String.fromCharCode(...keyArr))
       }).toString();
       const shareUrl = `${location.origin}/note.html#${frag}`;
@@ -79,10 +82,14 @@
   // 4. View-Note flow (note.html)
   function initViewNoteFlow(db) {
     // Parse fragment params
-    const params    = new URLSearchParams(location.hash.slice(1));
-    const noteId    = params.get('id');
-    const encrypted = decodeURIComponent(params.get('data'));
-    const keyRaw    = Uint8Array.from(atob(params.get('key')), c => c.charCodeAt(0));
+    const params     = new URLSearchParams(location.hash.slice(1));
+    const noteId     = params.get('id');
+    
+    // Decompress the stored payload
+    const compressed = params.get('data');
+    const combined   = LZString.decompressFromEncodedURIComponent(compressed);
+
+    const keyRaw     = Uint8Array.from(atob(params.get('key')), c => c.charCodeAt(0));
 
     // Fetch record from IndexedDB
     const tx    = db.transaction('notes','readwrite');
@@ -98,7 +105,7 @@
       }
 
       // 4.2 AES-GCM decryption
-      const rawBytes  = atob(encrypted);
+      const rawBytes  = atob(combined);
       const iv        = Uint8Array.from(rawBytes.slice(0,12), c => c.charCodeAt(0));
       const ctBytes   = Uint8Array.from(rawBytes.slice(12),  c => c.charCodeAt(0));
       const cryptoKey = await crypto.subtle.importKey(
