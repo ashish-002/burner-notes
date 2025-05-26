@@ -5,15 +5,17 @@ class BurnerApp {
     }
 
     async init() {
-        // Wait for DOM to be ready
+        this.setupEventListeners();
+        this.setupServiceWorker();
+        
+        // Wait for everything to be fully loaded before checking for shared notes
         if (document.readyState === 'loading') {
             await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
         }
         
-        this.setupEventListeners();
-        this.setupServiceWorker();
+        // Additional wait to ensure hash is fully loaded
+        await new Promise(resolve => setTimeout(resolve, 50));
         
-        // Check for shared note with multiple strategies
         this.checkForSharedNote();
         
         // Also check when page becomes visible (for mobile browsers)
@@ -34,11 +36,17 @@ class BurnerApp {
         document.getElementById('unlockButton').addEventListener('click', () => this.handlePasswordSubmit());
         document.getElementById('newNote').addEventListener('click', () => location.reload());
         
-        // Add hash change listener for backward compatibility
-        window.addEventListener('hashchange', () => this.processHash());
+        // Add hash change listener
+        window.addEventListener('hashchange', () => {
+            console.log('Hash changed event triggered');
+            setTimeout(() => this.processHash(), 10);
+        });
         
-        // Add popstate listener for query parameter changes
-        window.addEventListener('popstate', () => this.checkForSharedNote());
+        // Add load event listener to catch late-loading hashes
+        window.addEventListener('load', () => {
+            console.log('Window load event triggered');
+            setTimeout(() => this.checkForSharedNote(), 50);
+        });
     }
 
     async generateNote() {
@@ -98,8 +106,8 @@ class BurnerApp {
     }
 
     showShareView(noteString, expiryTime) {
-        // Use query parameter instead of hash fragment for better QR code compatibility
-        const shareUrl = `${location.origin}${location.pathname}?n=${noteString}`;
+        // Use hash fragment (revert back since you can see the hash in URL)
+        const shareUrl = `${location.origin}${location.pathname}#${noteString}`;
         document.getElementById('createView').classList.add('hidden');
         document.getElementById('shareView').classList.remove('hidden');
         
@@ -138,17 +146,21 @@ class BurnerApp {
     }
 
     checkForSharedNote() {
-        // Check for note data in query parameters (primary method for QR codes)
-        this.checkURLParams();
+        console.log('=== CHECKING FOR SHARED NOTE ===');
+        console.log('Document ready state:', document.readyState);
+        console.log('Current timestamp:', Date.now());
         
-        // Also check hash for backward compatibility
+        // Multiple attempts with different timing
         this.processHash();
         
-        // Also check after delays in case data loads later
-        setTimeout(() => {
-            this.checkURLParams();
-            this.processHash();
-        }, 100);
+        // Progressive delays to catch hash at different loading stages
+        const delays = [10, 50, 100, 200, 500, 1000];
+        delays.forEach(delay => {
+            setTimeout(() => {
+                console.log(`Checking hash after ${delay}ms delay`);
+                this.processHash();
+            }, delay);
+        });
     }
 
     checkURLParams() {
@@ -209,44 +221,88 @@ class BurnerApp {
     }
 
     processHash() {
-        console.log('Current URL:', window.location.href);
-        console.log('Hash:', window.location.hash);
-        console.log('Search:', window.location.search);
-        console.log('Pathname:', window.location.pathname);
+        const currentUrl = window.location.href;
+        const hash = window.location.hash;
+        const noteString = hash.substring(1);
         
-        const noteString = window.location.hash.substring(1);
-        console.log('Note string from hash:', noteString);
+        console.log('--- Processing Hash ---');
+        console.log('Full URL:', currentUrl);
+        console.log('Hash:', hash);
+        console.log('Note string length:', noteString.length);
+        console.log('Note string preview:', noteString.substring(0, 50) + '...');
         
-        if (!noteString) {
-            console.log('No hash found');
+        // Skip if we already processed this note
+        if (this.currentNote && this.currentNote.processed) {
+            console.log('Note already processed, skipping');
+            return;
+        }
+        
+        if (!noteString || noteString.length < 10) {
+            console.log('No valid hash found or hash too short');
             return;
         }
 
         try {
-            this.currentNote = JSON.parse(decodeURIComponent(atob(noteString)));
-            console.log('Parsed note:', this.currentNote);
+            console.log('Attempting to decode note...');
+            const decodedNote = JSON.parse(decodeURIComponent(atob(noteString)));
+            console.log('Successfully decoded note:', decodedNote);
             
-            if (this.currentNote.expires < Date.now()) {
+            if (!decodedNote.data || !decodedNote.expires) {
+                console.log('Invalid note structure - missing data or expires');
+                return;
+            }
+            
+            if (decodedNote.expires < Date.now()) {
+                console.log('Note has expired');
                 alert('Note expired');
                 history.replaceState({}, '', location.pathname);
                 return;
             }
             
+            console.log('Valid note found, setting as current note');
+            this.currentNote = { ...decodedNote, processed: true };
+            
             console.log('Showing password modal');
-            document.getElementById('passwordModal').classList.remove('hidden');
+            const passwordModal = document.getElementById('passwordModal');
+            if (passwordModal) {
+                passwordModal.classList.remove('hidden');
+                console.log('Password modal should now be visible');
+            } else {
+                console.error('Password modal element not found!');
+            }
+            
         } catch (error) {
-            console.error('Hash parsing error:', error);
-            // Don't show alert here since we also try other methods
+            console.error('Error processing hash:', error);
+            console.error('Error details:', error.message);
+            // Only show alert if this looks like it should be a valid note
+            if (noteString.length > 50) {
+                alert('Invalid or corrupted note');
+                history.replaceState({}, '', location.pathname);
+            }
         }
     }
     
     async handlePasswordSubmit() {
         const password = document.getElementById('passwordInput').value;
+        if (!password) {
+            alert('Please enter a password');
+            return;
+        }
+        
+        if (!this.currentNote) {
+            alert('No note data available');
+            return;
+        }
+        
         try {
+            console.log('Attempting to decrypt with password...');
             const decrypted = await this.decryptContent(this.currentNote.data, password);
+            console.log('Decryption successful');
             this.showDecryptedNote(decrypted);
+            // Clean up URL after successful decryption
             history.replaceState({}, '', location.pathname);
         } catch (error) {
+            console.error('Decryption error:', error);
             alert('Wrong password or corrupted note!');
         }
     }
