@@ -107,7 +107,7 @@ class BurnerApp {
 
     showShareView(noteString, expiryTime) {
         // Use hash fragment (revert back since you can see the hash in URL)
-        const shareUrl = `${location.origin}${location.pathname}#${noteString}`;
+        const shareUrl = `${location.origin}/note.html#${noteString}`;
         document.getElementById('createView').classList.add('hidden');
         document.getElementById('shareView').classList.remove('hidden');
         
