@@ -63,7 +63,7 @@
 
       // Build the share URL: shortId in query + key in fragment
       const keyB64   = btoa(String.fromCharCode(...keyArr));
-      const shareUrl = `${location.origin}/note.html?id=${shortId}#key=${keyB64}`;
+      const shareUrl = `${location.origin}/note.html?id=${shortId}&key=${keyB64}`;
       console.log('QR encoding this URL:', shareUrl);
 
       // Generate the QR code
@@ -84,66 +84,84 @@
     // 4.1 Parse shortId from query
     const params  = new URLSearchParams(location.search);
     const shortId = params.get('id');
+    const keyB64  = params.get('key');
     if (!shortId) {
       return document.getElementById('output').textContent = 'Missing note ID';
     }
-
-    // 4.2 Read key from fragment
-    const frag    = new URL(location).hash.substring(1);
-    const keyB64  = new URLSearchParams(frag).get('key');
-    if (!keyB64) {
-      return document.getElementById('output').textContent = 'Missing decryption key';
+      if (!keyB64) {
+    document.getElementById('output').textContent = 'Missing decryption key';
+    return;
     }
-    const keyRaw  = Uint8Array.from(atob(keyB64), c => c.charCodeAt(0));
 
-    // 4.3 Fetch encrypted blob & metadata
+    // Convert base64 key to Uint8Array
+    const keyRaw = Uint8Array.from(atob(keyB64), c => c.charCodeAt(0));
+
+    // 4.2 Fetch encrypted payload & metadata from serverless function
+  let record;
+  try {
     const resp = await fetch(`/.netlify/functions/getNote?shortId=${encodeURIComponent(shortId)}`);
     if (!resp.ok) {
-      return document.getElementById('output').textContent = 'Failed to retrieve note';
+      document.getElementById('output').textContent = resp.status === 410
+        ? 'Note expired'
+        : 'Failed to retrieve note';
+      return;
     }
-    const { data: combined, created, expiry } = await resp.json();
+    record = await resp.json();
+  } catch (err) {
+    document.getElementById('output').textContent = 'Network error';
+    return;
+  }
 
-    // 4.4 Expiry check
-    if (Date.now() - created > expiry) {
-      return document.getElementById('output').textContent = 'Note expired';
-    }
+  const { data: combined, created, expiry } = record;
 
-    // 4.5 AES-GCM decryption
-    const rawBytes  = atob(combined);
-    const iv        = Uint8Array.from(rawBytes.slice(0,12), c => c.charCodeAt(0));
-    const ctBytes   = Uint8Array.from(rawBytes.slice(12),  c => c.charCodeAt(0));
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw', keyRaw, 'AES-GCM', false, ['decrypt']
-    );
-    const plainBuf  = await crypto.subtle.decrypt(
+  // 4.3 Expiry check
+  if (Date.now() - created > expiry) {
+    document.getElementById('output').textContent = 'Note expired';
+    return;
+  }
+
+  // 4.4 AES-GCM decryption
+  const rawBytes = atob(combined);
+  const iv       = Uint8Array.from(rawBytes.slice(0,12), c => c.charCodeAt(0));
+  const ctBytes  = Uint8Array.from(rawBytes.slice(12),  c => c.charCodeAt(0));
+  const cryptoKey= await crypto.subtle.importKey(
+    'raw', keyRaw, 'AES-GCM', false, ['decrypt']
+  );
+  let plainText;
+  try {
+    const plainBuf = await crypto.subtle.decrypt(
       { name:'AES-GCM', iv }, cryptoKey, ctBytes
     );
-    const plainText = new TextDecoder().decode(plainBuf);
-
-    // 4.6 Display plaintext
-    document.getElementById('output').textContent = plainText;
-
-    // 4.7 Start countdown timer
-    const endTime = created + expiry;
-    const timerEl = document.getElementById('timer');
-    const interval = setInterval(() => {
-      const remain = endTime - Date.now();
-      if (remain <= 0) {
-        clearInterval(interval);
-        document.getElementById('output').textContent = 'Note expired';
-        return;
-      }
-      timerEl.textContent = `Expires in ${Math.ceil(remain/1000)}s`;
-    }, 500);
-
-    // 4.8 Wire up PDF export
-    document.getElementById('export-pdf').addEventListener('click', () => {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      doc.text(plainText, 10, 10);
-      doc.save('burner-note.pdf');
-    });
+    plainText = new TextDecoder().decode(plainBuf);
+  } catch {
+    document.getElementById('output').textContent = 'Decryption failed';
+    return;
   }
+
+  // 4.5 Display plaintext
+  document.getElementById('output').textContent = plainText;
+
+  // 4.6 Start countdown timer
+  const endTime = created + expiry;
+  const timerEl = document.getElementById('timer');
+  const interval = setInterval(() => {
+    const remain = endTime - Date.now();
+    if (remain <= 0) {
+      clearInterval(interval);
+      document.getElementById('output').textContent = 'Note expired';
+      return;
+    }
+    timerEl.textContent = `Expires in ${Math.ceil(remain/1000)}s`;
+  }, 500);
+
+  // 4.7 Wire up PDF export
+  document.getElementById('export-pdf').addEventListener('click', () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.text(plainText, 10, 10);
+    doc.save('burner-note.pdf');
+  });
+}
 
   // 5. Purge expired records helper (optional; indexedDB no longer used for storage)
   function purgeExpired(db) {
