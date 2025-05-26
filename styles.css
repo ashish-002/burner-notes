@@ -26,11 +26,12 @@ button {
   margin-right: 0.5rem;
   cursor: pointer;
 }
-#qrcode {
-  margin: 1rem 0;
+#shareLink {
+  height: 4rem;
+  font-family: monospace;
 }
 #countdown,
 #viewCountdown {
   font-size: 1.2rem;
-  margin: 0.5rem 0;
+  margin-top: 1rem;
 }
