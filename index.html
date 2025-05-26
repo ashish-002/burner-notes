@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self';">
+  <title>Burner Notes</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <textarea id="note-input" placeholder="Enter your note…"></textarea>
+    <select id="expiry-select">
+      <option value="3600000">1 hour</option>
+      <!-- … -->
+      <option value="604800000">7 days</option>
+    </select>
+    <button id="create-btn">Create Burner Note</button>
+    <div id="qr-code"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
