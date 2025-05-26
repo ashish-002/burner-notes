@@ -1,39 +1,57 @@
 /* style.css */
 
-/* Import a clean sans font and a monospace for code/note display */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono&display=swap');
+/* Techy fonts */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap');
 
-/* Full-screen animated gradient background */
+/* Base styles + animated background overlay */
 body {
   margin: 0;
   min-height: 100vh;
-  background: linear-gradient(-45deg, #ff6b6b, #f8e71c, #6bffb8, #6b6bff);
-  background-size: 400% 400%;
-  animation: gradientShift 15s ease infinite;
-  font-family: 'Inter', sans-serif;
-  color: #fff;
+  background: #0f0f0f;
+  color: #e0e0e0;
+  font-family: 'Roboto Mono', monospace;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem;
+  overflow: hidden;
+  position: relative;
 }
 
-/* Gradient animation */
-@keyframes gradientShift {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+/* Subtle grid overlay */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255,255,255,0.02) 0px,
+    rgba(255,255,255,0.02) 1px,
+    transparent 1px,
+    transparent 20px
+  );
+  pointer-events: none;
+  z-index: -2;
+}
+/* Soft radial glow */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at center, rgba(10,20,30,0.5), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
 }
 
-/* Shared panel style for all views */
+/* Panel container (Create, Share, Modal, Note) */
 #createView,
 #shareView,
 #passwordModal,
 #noteView {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(12px);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  background: rgba(20, 20, 30, 0.85);
+  border: 1px solid rgba(0, 255, 255, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
   padding: 2rem;
   width: 100%;
   max-width: 480px;
@@ -41,82 +59,81 @@ body {
   animation: fadeIn 0.6s ease both;
 }
 
-/* Fade-in helper */
+/* Fade-in animation */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-10px); }
-  to   { opacity: 1; transform: translateY(0);       }
+  to   { opacity: 1; transform: translateY(0);      }
 }
 
-/* Inputs and textareas */
+/* Form controls */
 textarea,
 input,
-select {
+select,
+#shareLink {
   width: 100%;
-  padding: 0.8rem;
+  padding: 0.75rem;
   margin-bottom: 1rem;
-  border: none;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.2);
-  color: #fff;
-  font-size: 1rem;
-  font-family: 'Inter', sans-serif;
   box-sizing: border-box;
-  transition: background 0.2s ease;
+  background: transparent;
+  border: 1px solid #222;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 1rem;
+  font-family: 'Roboto Mono', monospace;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-textarea:focus,
+
+textarea,
+#shareLink {
+  resize: none;
+}
+
 input:focus,
+textarea:focus,
 select:focus {
-  background: rgba(255,255,255,0.3);
   outline: none;
+  border-color: #0ff;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
 }
 
 /* Buttons */
 button {
-  display: inline-block;
-  padding: 0.8rem 1.6rem;
+  font-family: 'Orbitron', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 0.75rem 1.5rem;
   margin: 0.3rem 0.2rem;
-  font-size: 1rem;
-  font-weight: 500;
-  color: #222;
-  background: linear-gradient(135deg, #ffd54f, #ff6e40);
+  background: #0ff;
+  color: #111;
   border: none;
-  border-radius: 8px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 button:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
 }
 
-/* Read-only share link */
-#shareLink {
-  font-family: 'Roboto Mono', monospace;
-  background: rgba(255,255,255,0.2);
-  border-radius: 8px;
-  padding: 0.6rem;
-  margin-bottom: 1rem;
-  resize: none;
-  height: 4rem;
-  color: #fff;
-}
-
-/* Countdown timers */
+/* Countdown displays */
 #countdown,
 #viewCountdown {
-  text-align: center;
   font-size: 1.2rem;
+  text-align: center;
   margin-top: 1rem;
   font-weight: 500;
+  color: #0ff;
 }
 
-/* Note display area */
+/* Note display */
 #noteDisplay {
   font-family: 'Roboto Mono', monospace;
+  line-height: 1.6;
   white-space: pre-wrap;
-  line-height: 1.5;
-  font-size: 1rem;
 }
 
 /* Utility */
-.hidden { display: none; }
+.hidden {
+  display: none;
+}
