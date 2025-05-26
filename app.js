@@ -28,14 +28,13 @@ class BurnerApp {
 
         try {
             const encrypted = await this.encryptContent(content, password);
-            const noteId = this.generateNoteId();
-            
-            localStorage.setItem(noteId, JSON.stringify({
+            const noteData = {
                 data: encrypted,
                 expires: Date.now() + (document.getElementById('expiry').value * 1000)
-            }));
+            };
             
-            this.showShareView(noteId);
+            const noteString = btoa(JSON.stringify(noteData));
+            this.showShareView(noteString); // Changed from noteId
         } catch (error) {
             alert('Error creating note: ' + error.message);
         }
@@ -74,15 +73,15 @@ class BurnerApp {
         };
     }
 
-    generateNoteId() {
-        return btoa(crypto.getRandomValues(new Uint8Array(16))).replace(/[+/=]/g, '');
-    }
+ //   generateNoteId() {
+ //       return btoa(crypto.getRandomValues(new Uint8Array(16))).replace(/[+/=]/g, '');
+ //   }
 
-    showShareView(noteId) {
+    showShareView(noteString,expiryTime) {
+        const shareUrl = `${location.origin}${location.pathname}#${noteString}`;
         document.getElementById('createView').classList.add('hidden');
         document.getElementById('shareView').classList.remove('hidden');
         
-        const shareUrl = `${location.origin}${location.pathname}#${noteId}`;
         new QRCode(document.getElementById('qrcode'), {
             text: shareUrl,
             width: 256,
@@ -91,8 +90,6 @@ class BurnerApp {
             colorLight: "#ffffff",
             correctLevel: QRCode.CorrectLevel.H
         });
-
-        const expiryTime = JSON.parse(localStorage.getItem(noteId)).expires;
         this.startCountdown(expiryTime, 'countdown');
     }
 
@@ -117,27 +114,27 @@ class BurnerApp {
     }
 
     checkForSharedNote() {
-        const noteId = window.location.hash.substring(1);
-        if (!noteId) return;
+        const noteString = window.location.hash.substring(1);
+        if (!noteString) return;
 
-        const noteData = localStorage.getItem(noteId);
-        if (!noteData) {
-            alert('Note not found or expired!');
-            return;
+        try {
+            this.currentNote = JSON.parse(atob(noteString));
+            if (this.currentNote.expires < Date.now()) {
+                alert('Note expired');
+                return;
+            }
+            document.getElementById('passwordModal').classList.remove('hidden');
+        } catch (error) {
+            alert('Invalid note format');
         }
-
-        this.currentNote = JSON.parse(noteData);
-        document.getElementById('passwordModal').classList.remove('hidden');
     }
-
+    
     async handlePasswordSubmit() {
-        const password = document.getElementById('passwordInput').value;
-        
+         const password = document.getElementById('unlockPassword').value;
         try {
             const decrypted = await this.decryptContent(this.currentNote.data, password);
             this.showDecryptedNote(decrypted);
-            localStorage.removeItem(window.location.hash.substring(1));
-            history.replaceState({}, '', location.pathname);
+            history.replaceState({}, '', location.pathname); // Clear hash after viewing
         } catch (error) {
             alert('Wrong password or corrupted note!');
         }
@@ -189,22 +186,6 @@ class BurnerApp {
                 .catch(err => console.error('SW error:', err));
         }
     }
-
-    setupAutoCleanup() {
-        setInterval(() => {
-            const now = Date.now();
-            Object.keys(localStorage).forEach(key => {
-                const data = localStorage.getItem(key);
-                try {
-                    const note = JSON.parse(data);
-                    if (note.expires && note.expires < now) {
-                        localStorage.removeItem(key);
-                    }
-                } catch {}
-            });
-        }, 3600000);
-    }
-}
 
 // Initialize app
 const app = new BurnerApp();
