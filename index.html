@@ -1,25 +1,18 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Burner Notes</title>
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;">
+        content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self';">
+  <title>Burner Notes</title>
   <link rel="stylesheet" href="style.css">
-  <!-- QRCode library -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-  <!-- LZ-String for compression -->
-  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js"></script>
-  <!-- jsPDF for PDF export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
-  <!-- Create Note View -->
+  <!-- Create View -->
   <div id="createView">
-    <h1>Create Note</h1>
     <textarea id="noteContent" placeholder="Enter your note…"></textarea>
-    <input id="notePassword" type="password" placeholder="Set a password">
-    <label for="expiry">Expires in:</label>
+    <input id="notePassword" type="password" placeholder="Password" />
     <select id="expiry">
       <option value="3600">1 hour</option>
       <option value="86400">1 day</option>
@@ -30,29 +23,30 @@
 
   <!-- Share View -->
   <div id="shareView" class="hidden">
-    <h1>Share Your Note</h1>
-    <div id="qrcode"></div>
-    <div id="countdown"></div>
+    <p>Your secure note link:</p>
+    <textarea id="shareLink" readonly></textarea>
+    <button id="copyLink">Copy Link</button>
     <button id="newNote">New Note</button>
+    <div id="countdown"></div>
   </div>
 
-  <!-- Password Modal -->
+  <!-- Unlock Modal -->
   <div id="passwordModal" class="hidden">
-    <div class="modal-content">
-      <input id="passwordInput" type="password" placeholder="Enter password">
-      <button id="unlockButton">Unlock</button>
-    </div>
+    <input id="passwordInput" type="password" placeholder="Enter password" />
+    <button id="unlockButton">Unlock</button>
   </div>
 
   <!-- Note View -->
   <div id="noteView" class="hidden">
-    <h1>Your Note</h1>
     <div id="noteDisplay"></div>
     <div id="viewCountdown"></div>
     <button id="newNote">New Note</button>
     <button id="export-pdf">Download PDF</button>
   </div>
 
+  <!-- jsPDF for PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- Main App -->
   <script src="app.js"></script>
 </body>
 </html>
