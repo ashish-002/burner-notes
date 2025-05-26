@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" 
+          content="default-src 'self';
+                   script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'unsafe-eval';
+                   style-src 'self' 'unsafe-inline';
+                   img-src data:;
+                   object-src 'none';
+                   base-uri 'self'">
+    <title>Secure Burner Notes</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"
+            integrity="sha256-xUHvBjJ4hahBW8qN9gceFBibSFUzbe9PNttUvehITzY="
+            crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div id="passwordModal" class="modal hidden">
+            <div class="modal-content">
+                <h3>🔒 Enter Password</h3>
+                <input type="password" id="passwordInput">
+                <button id="unlockButton">Unlock</button>
+            </div>
+        </div>
+
+        <div id="createView">
+            <h1>🔥 New Burner Note</h1>
+            <textarea id="noteContent" placeholder="Type sensitive info here..."></textarea>
+            <div class="security-row">
+                <input type="password" id="notePassword" placeholder="Set password">
+                <select id="expiry">
+                    <option value="3600">1 Hour</option>
+                    <option value="86400">1 Day</option>
+                    <option value="604800">1 Week</option>
+                </select>
+                <button id="createNote">Create Note</button>
+            </div>
+        </div>
+
+        <div id="shareView" class="hidden">
+            <div id="qrcode"></div>
+            <p>⌛ Expires in: <span id="countdown">00:00:00</span></p>
+            <button id="newNote">New Note</button>
+        </div>
+
+        <div id="noteView" class="hidden">
+            <pre id="noteDisplay"></pre>
+            <div id="viewCountdown"></div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
