@@ -1,27 +1,15 @@
-const CACHE_NAME = 'burner-v5';
+const CACHE_NAME = 'burner-link-v1';
 const LOCAL_ASSETS = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './sw.js'
+  '/',
+  '/index.html',
+  '/styles.css',
+  '/app.js'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(LOCAL_ASSETS))
-  );
-});
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then(keys => 
-      Promise.all(keys
-        .filter(key => key !== CACHE_NAME)
-        .map(key => caches.delete(key))
-      )
-    )
   );
 });
 
