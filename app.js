@@ -8,7 +8,6 @@ class BurnerApp {
         this.setupEventListeners();
         this.setupServiceWorker();
         this.checkForSharedNote();
-        this.setupAutoCleanup();
     }
 
     setupEventListeners() {
@@ -33,8 +32,8 @@ class BurnerApp {
                 expires: Date.now() + (document.getElementById('expiry').value * 1000)
             };
             
-            const noteString = btoa(JSON.stringify(noteData));
-            this.showShareView(noteString); // Changed from noteId
+            const noteString = btoa(encodeURIComponent(JSON.stringify(noteData)));
+            this.showShareView(noteString, noteData.expires);
         } catch (error) {
             alert('Error creating note: ' + error.message);
         }
@@ -73,15 +72,13 @@ class BurnerApp {
         };
     }
 
- //   generateNoteId() {
- //       return btoa(crypto.getRandomValues(new Uint8Array(16))).replace(/[+/=]/g, '');
- //   }
-
-    showShareView(noteString,expiryTime) {
+    showShareView(noteString, expiryTime) {
         const shareUrl = `${location.origin}${location.pathname}#${noteString}`;
         document.getElementById('createView').classList.add('hidden');
         document.getElementById('shareView').classList.remove('hidden');
         
+        // Clear previous QR code
+        document.getElementById('qrcode').innerHTML = '';
         new QRCode(document.getElementById('qrcode'), {
             text: shareUrl,
             width: 256,
@@ -90,6 +87,7 @@ class BurnerApp {
             colorLight: "#ffffff",
             correctLevel: QRCode.CorrectLevel.H
         });
+
         this.startCountdown(expiryTime, 'countdown');
     }
 
@@ -118,23 +116,25 @@ class BurnerApp {
         if (!noteString) return;
 
         try {
-            this.currentNote = JSON.parse(atob(noteString));
+            this.currentNote = JSON.parse(decodeURIComponent(atob(noteString)));
             if (this.currentNote.expires < Date.now()) {
                 alert('Note expired');
+                history.replaceState({}, '', location.pathname);
                 return;
             }
             document.getElementById('passwordModal').classList.remove('hidden');
         } catch (error) {
-            alert('Invalid note format');
+            alert('Invalid or corrupted note');
+            history.replaceState({}, '', location.pathname);
         }
     }
     
     async handlePasswordSubmit() {
-         const password = document.getElementById('unlockPassword').value;
+        const password = document.getElementById('passwordInput').value;
         try {
             const decrypted = await this.decryptContent(this.currentNote.data, password);
             this.showDecryptedNote(decrypted);
-            history.replaceState({}, '', location.pathname); // Clear hash after viewing
+            history.replaceState({}, '', location.pathname);
         } catch (error) {
             alert('Wrong password or corrupted note!');
         }
@@ -186,6 +186,7 @@ class BurnerApp {
                 .catch(err => console.error('SW error:', err));
         }
     }
+}
 
 // Initialize app
 const app = new BurnerApp();
