@@ -1,5 +1,5 @@
 // sw.js
-const CACHE_NAME = 'burner-v5';
+const CACHE_NAME = 'burner-v6';
 const LOCAL_ASSETS = [
   './',
   './index.html',
